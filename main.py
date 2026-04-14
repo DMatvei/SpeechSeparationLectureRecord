@@ -1,7 +1,11 @@
 import sys
 import os
+import time
+
 from PyQt6 import uic
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
+
+from pipeline import process
 
 
 class MainWindom(QMainWindow):
@@ -38,22 +42,18 @@ class MainWindom(QMainWindow):
         self.progressBar.setValue(0)
         self.statusbar.showMessage("Обработка...")
 
-        # заглушка
-        self.process_audio(input_path)
+        try:
+            process(
+                input_path,
+                self.output_dir,
+                on_progress=lambda v: self.progressBar.setValue(v)
+            )
+            self.statusbar.showMessage("Готово!")
+            QMessageBox.information(self, "Готово", "Обработка завершена")
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", str(e))
+            self.statusbar.showMessage("Ошибка")
 
-
-    def process_audio(self, input_path:str):
-        """тут основная работа всего диплома должна быть"""
-        #to-do привязать работу обратботки сюда
-
-        # имитация
-        for i in range(101):
-            self.progressBar.setValue(i)
-            QApplication.processEvents()
-
-        os.makedirs(self.output_dir, exist_ok=True)
-        self.statusbar.showMessage("Готово")
-        QMessageBox.information(self, "Готово", "Обработка завершена")
 
     def open_output_folder(self):
         os.makedirs(self.output_dir, exist_ok=True)
