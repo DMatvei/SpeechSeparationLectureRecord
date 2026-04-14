@@ -27,7 +27,7 @@ class MainWindom(QMainWindow):
     def browse_file(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Выберите аудофайл", "",
-            "Audio Files (*.wav *.mp3 *.flac);; All Files (*)"
+            "Audio Files (*.wav *.mp3 *.flac *.mp4);; All Files (*)"
         )
         if path:
             self.lineEdit.setText(path)
