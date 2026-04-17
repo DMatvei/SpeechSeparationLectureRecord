@@ -1,6 +1,7 @@
 import os
 from core.converter import convert_to_wav
-from core.diarization import load_diarization_pipeline, diarize, find_lector, extract_refs
+from core.diarization import load_diarization_pipeline, diarize, find_lector, extract_refs, save_speaker_timeline, \
+    clean_ref
 from core.scp import generate_scp_files
 from core.tse import load_model, run_tse
 
@@ -58,6 +59,13 @@ def process(input_path: str, output_dir: str, on_progress=None):
     refs_dir = os.path.join(output_dir, "refs")
     ref_paths = extract_refs(wav_path, diarization, lector, refs_dir,
                              min_dur=20.0, num_refs=1, max_dur=50.0)
+    save_speaker_timeline(diarization, lector, output_dir)
+
+    cleaned_refs = []
+    for ref in ref_paths:
+        cleaned_path = ref.replace('.wav', '_clean.wav')
+        clean_ref(ref, cleaned_path)
+        cleaned_refs.append(cleaned_path)
 
     # чистю видеопамять
     import torch, gc
@@ -70,7 +78,7 @@ def process(input_path: str, output_dir: str, on_progress=None):
 
 
     # Получение scp Файлов
-    mix_scp, aux_scp = generate_scp_files(wav_path, ref_paths, output_dir)
+    mix_scp, aux_scp = generate_scp_files(wav_path, cleaned_refs, output_dir)
     if on_progress: on_progress(50)
 
     # TSE

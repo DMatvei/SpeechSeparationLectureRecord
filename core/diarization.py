@@ -1,7 +1,12 @@
 import os
+
 import torch
 import soundfile as sf
 from pyannote.audio import  Pipeline
+import noisereduce as nr
+
+from temp import audio
+
 
 # todo Вытащить модель, чтобы была доступна локально
 
@@ -64,3 +69,30 @@ def extract_refs(wav_path: str, diarization, lector: str,
             break
     print(f"Сохранено референсов: {len(ref_paths)}")
     return ref_paths
+
+
+def save_speaker_timeline(diarizatoin, lector: str, output_path: str):
+    """Выводит моменты с не основными спикерами"""
+    os.makedirs(output_path, exist_ok=True)
+    path = os.path.join(output_path, f'speaker.txt')
+    with open(path, "w", encoding='utf-8') as f:
+        f.write(f'Преподаватель: {lector}\n')
+        f.write(f'{"=" * 60}\n')
+
+        for turn, _, speaker in diarizatoin.itertracks(yield_label=True):
+            if speaker != lector:
+                mins_s = int(turn.start // 60)
+                secs_s = turn.start % 60
+                mins_e = int(turn.end // 60)
+                secs_e = turn.end % 60
+                dur = turn.end - turn.start
+                f.write(f'{speaker}: {mins_s:02d}:{secs_s:05.2f} - '
+                        f'{mins_e:02d}:{secs_e:05.2f} ({dur:.1f} сек)\n')
+    print(f'Таймлайн сохранён: {path}')
+
+def clean_ref(input_path: str, output_path: str):
+    """Очистка референса от шума"""
+    audio, sr = sf.read(input_path)
+    cleaned = nr.reduce_noise(y=audio, sr=sr)
+    sf.write(output_path, cleaned, sr)
+    return output_path
