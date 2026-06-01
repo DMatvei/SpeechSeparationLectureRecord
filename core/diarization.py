@@ -5,7 +5,7 @@ import soundfile as sf
 from pyannote.audio import  Pipeline
 import noisereduce as nr
 
-from temp import audio
+
 
 
 # todo Вытащить модель, чтобы была доступна локально
@@ -89,6 +89,7 @@ def save_speaker_timeline(diarizatoin, lector: str, output_path: str):
                 f.write(f'{speaker}: {mins_s:02d}:{secs_s:05.2f} - '
                         f'{mins_e:02d}:{secs_e:05.2f} ({dur:.1f} сек)\n')
     print(f'Таймлайн сохранён: {path}')
+
 
 def clean_ref(input_path: str, output_path: str):
     """Очистка референса от шума"""

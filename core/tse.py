@@ -7,7 +7,6 @@ import soundfile as sf
 import numpy as np
 from collections import OrderedDict
 
-from attr.validators import max_len
 from torch.utils.data import Dataset, DataLoader
 
 
