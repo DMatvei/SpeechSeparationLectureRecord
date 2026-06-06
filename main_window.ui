@@ -6,76 +6,258 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>640</width>
+    <height>560</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Выделение речи преподавателя</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QLineEdit" name="lineEdit">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>220</y>
-      <width>651</width>
-      <height>31</height>
-     </rect>
+   <layout class="QVBoxLayout" name="rootLayout">
+    <property name="leftMargin">
+     <number>18</number>
     </property>
-   </widget>
-   <widget class="QPushButton" name="pushButton_view">
-    <property name="geometry">
-     <rect>
-      <x>680</x>
-      <y>220</y>
-      <width>101</width>
-      <height>31</height>
-     </rect>
+    <property name="topMargin">
+     <number>18</number>
     </property>
-    <property name="text">
-     <string>Обзор</string>
+    <property name="rightMargin">
+     <number>18</number>
     </property>
-   </widget>
-   <widget class="QPushButton" name="pushButton_start">
-    <property name="geometry">
-     <rect>
-      <x>40</x>
-      <y>380</y>
-      <width>171</width>
-      <height>41</height>
-     </rect>
+    <property name="bottomMargin">
+     <number>18</number>
     </property>
-    <property name="text">
-     <string>Запуск</string>
+    <property name="spacing">
+     <number>14</number>
     </property>
-   </widget>
-   <widget class="QProgressBar" name="progressBar">
-    <property name="geometry">
-     <rect>
-      <x>50</x>
-      <y>450</y>
-      <width>541</width>
-      <height>23</height>
-     </rect>
-    </property>
-    <property name="value">
-     <number>24</number>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="pushButton_openFolder">
-    <property name="geometry">
-     <rect>
-      <x>630</x>
-      <y>440</y>
-      <width>131</width>
-      <height>41</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Открыть папку</string>
-    </property>
-   </widget>
+    <item>
+     <widget class="QLabel" name="titleLabel">
+      <property name="text">
+       <string>Выделение речи преподавателя из аудиозаписи</string>
+      </property>
+      <property name="styleSheet">
+       <string>font-size: 15px; font-weight: 600;</string>
+      </property>
+     </widget>
+    </item>
+    <!-- ШАГ 1: ФАЙЛ -->
+    <item>
+     <widget class="QGroupBox" name="groupFile">
+      <property name="title">
+       <string>1. Аудиофайл</string>
+      </property>
+      <layout class="QVBoxLayout" name="fileLayout">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="dropZone">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>90</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>Перетащите аудиофайл сюда
+или нажмите «Обзор»</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <property name="styleSheet">
+          <string>QLabel { border: 2px dashed #b8b8b8; border-radius: 8px; color: #777; background: #fafafa; }</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="pathRow">
+         <property name="spacing">
+          <number>8</number>
+         </property>
+         <item>
+          <widget class="QLineEdit" name="lineEdit">
+           <property name="placeholderText">
+            <string>Путь к файлу не выбран</string>
+           </property>
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_view">
+           <property name="minimumSize">
+            <size>
+             <width>110</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>Обзор…</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <!-- ШАГ 2: КАЧЕСТВО -->
+    <item>
+     <widget class="QGroupBox" name="groupQuality">
+      <property name="title">
+       <string>2. Качество обработки</string>
+      </property>
+      <layout class="QHBoxLayout" name="qualityLayout">
+       <property name="spacing">
+        <number>12</number>
+       </property>
+       <item>
+        <widget class="QRadioButton" name="radioLow">
+         <property name="text">
+          <string>Быстро</string>
+         </property>
+         <property name="toolTip">
+          <string>Меньше времени, ниже точность выделения</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QRadioButton" name="radioMedium">
+         <property name="text">
+          <string>Сбалансированно</string>
+         </property>
+         <property name="toolTip">
+          <string>Разумный компромисс между скоростью и точностью</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QRadioButton" name="radioHigh">
+         <property name="text">
+          <string>Точно</string>
+         </property>
+         <property name="toolTip">
+          <string>Максимальная точность, обработка дольше</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="qualitySpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <!-- ШАГ 3: ОБРАБОТКА -->
+    <item>
+     <widget class="QGroupBox" name="groupRun">
+      <property name="title">
+       <string>3. Обработка</string>
+      </property>
+      <layout class="QVBoxLayout" name="runLayout">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       <item>
+        <widget class="QPushButton" name="pushButton_start">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>40</height>
+          </size>
+         </property>
+         <property name="text">
+          <string>Начать обработку</string>
+         </property>
+         <property name="styleSheet">
+          <string>QPushButton { font-weight: 600; }</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QProgressBar" name="progressBar">
+         <property name="value">
+          <number>0</number>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="bottomRow">
+         <property name="spacing">
+          <number>8</number>
+         </property>
+         <item>
+          <widget class="QLabel" name="statusLabel">
+           <property name="text">
+            <string>Готов к работе</string>
+           </property>
+           <property name="styleSheet">
+            <string>color: #666;</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="bottomSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_openFolder">
+           <property name="minimumSize">
+            <size>
+             <width>140</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>Открыть папку с результатом</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <spacer name="verticalSpacer">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>20</width>
+        <height>10</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+   </layout>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
