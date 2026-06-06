@@ -288,8 +288,10 @@ pyrightconfig.json
 
 #output_files
 output/
-
+spectrograms/
 #checpoint models
-models/SoloSpeech/checkpoints/
+models/SoloSpeech/checkpoints/*.ckpt
+
+
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,python
