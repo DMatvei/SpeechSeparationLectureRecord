@@ -1,19 +1,15 @@
 import sys
 import os
+import threading
 
 
 from PyQt6 import uic
-from PyQt6.QtCore import Qt, QUrl, QTime
+from PyQt6.QtCore import Qt, QUrl, QTime, QObject, QThread, pyqtSignal
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QDialog
 
-from pipeline import process
+from pipeline import process, PipelineCancelled
 
-QUALITY_PRESETS = {
-    "low" : {},
-    "medium" : {},
-    "high" : {}
-}
 AUDIO_FILTER = "Audio Files (*.wav *.mp3 *.flac *.mp4);;All Files (*)"
 AUDIO_EXTS = (".wav", ".mp3", ".flac", ".mp4", ".m4a", ".ogg")
 
@@ -93,6 +89,37 @@ else:
 
 
 
+class Worker(QObject):
+    progress = pyqtSignal(int, str)
+    finished = pyqtSignal(dict)
+    cancelled = pyqtSignal()
+    error = pyqtSignal(str)
+
+    def __init__(self, input_path, reference_path, output_dir, quality):
+        super().__init__()
+        self.input_path = input_path
+        self.reference_path = reference_path
+        self.output_dir = output_dir
+        self.quality = quality
+        self.cancel_event = threading.Event()
+
+    def run(self):
+        try:
+            result = process(
+                self.input_path,
+                self.reference_path,
+                self.output_dir,
+                quality=self.quality,
+                on_progress=lambda p, m: self.progress.emit(p, m),
+                cancel_check=self.cancel_event.is_set,
+            )
+            self.finished.emit(result)
+        except PipelineCancelled:
+            self.cancelled.emit()
+        except Exception as e:
+            self.error.emit(str(e))
+
+
 class MainWindom(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -142,12 +169,12 @@ class MainWindom(QMainWindow):
         )
 
     #  Качество -------------------------------
-    def selected_quality(self):
+    def selected_quality(self) -> str:
         if self.radioLow.isChecked():
-            return QUALITY_PRESETS['low']
+            return "low"
         if self.radioHigh.isChecked():
-            return QUALITY_PRESETS['high']
-        return QUALITY_PRESETS['medium']
+            return "high"
+        return "medium"
 
 
     # Основные действия ------------------------
@@ -166,30 +193,53 @@ class MainWindom(QMainWindow):
             QMessageBox.warning(self, "Ошибка", "Сначала выберите файл")
             return
 
-        params = self.selected_quality()
+        # TODO: временно, пока RefDialog не подключён к запуску
+        reference_path = os.path.join(self.output_dir, "refs", "ref_000.wav")
 
         self.progressBar.setValue(0)
         self.statusLabel.setText("Обработка…")
         self.statusbar.showMessage("Обработка…")
         self.pushButton_start.setEnabled(False)
 
-        try:
-            process(
-                input_path,
-                self.output_dir,
-                on_progress=lambda v: self.progressBar.setValue(v),
-                **params,
-            )
-            self.statusLabel.setText("Готово")
-            self.statusbar.showMessage("Готово!")
-            self.pushButton_openFolder.setEnabled(True)
-            QMessageBox.information(self, "Готово", "Обработка завершена")
-        except Exception as e:
-            self.statusLabel.setText("Ошибка")
-            self.statusbar.showMessage("Ошибка")
-            QMessageBox.critical(self, "Ошибка", str(e))
-        finally:
-            self.pushButton_start.setEnabled(True)
+        self.proc_thread = QThread()
+        self.worker = Worker(input_path, reference_path, self.output_dir, self.selected_quality())
+        self.worker.moveToThread(self.proc_thread)
+
+        self.proc_thread.started.connect(self.worker.run)
+        self.worker.progress.connect(self._on_progress)
+        self.worker.finished.connect(self._on_finished)
+        self.worker.cancelled.connect(self._on_cancelled)
+        self.worker.error.connect(self._on_error)
+
+        self.worker.finished.connect(self.proc_thread.quit)
+        self.worker.cancelled.connect(self.proc_thread.quit)
+        self.worker.error.connect(self.proc_thread.quit)
+        self.proc_thread.finished.connect(self.worker.deleteLater)
+        self.proc_thread.finished.connect(self.proc_thread.deleteLater)
+
+        self.proc_thread.start()
+
+    def _on_progress(self, value: int, message: str) -> None:
+        self.progressBar.setValue(value)
+        self.statusLabel.setText(message)
+
+    def _on_finished(self, result: dict) -> None:
+        self.statusLabel.setText("Готово")
+        self.statusbar.showMessage("Готово!")
+        self.pushButton_openFolder.setEnabled(True)
+        self.pushButton_start.setEnabled(True)
+        QMessageBox.information(self, "Готово", "Обработка завершена")
+
+    def _on_cancelled(self) -> None:
+        self.statusLabel.setText("Отменено")
+        self.statusbar.showMessage("Готово к работе")
+        self.pushButton_start.setEnabled(True)
+
+    def _on_error(self, message: str) -> None:
+        self.statusLabel.setText("Ошибка")
+        self.statusbar.showMessage("Ошибка")
+        self.pushButton_start.setEnabled(True)
+        QMessageBox.critical(self, "Ошибка", message)
 
     def open_output_folder(self):
         os.makedirs(self.output_dir, exist_ok=True)
