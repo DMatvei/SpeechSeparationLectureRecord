@@ -5,18 +5,6 @@ import soundfile as sf
 
 
 
-_sample_rate = 16000
-
-
-
-
-
-
-
-
-
-
-
 
 
 def process(input_path: str, output_dir: str, on_progress=None):
