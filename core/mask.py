@@ -141,6 +141,21 @@ def build_residual_masked(mix: np.ndarray, residual: np.ndarray = None,
 # ===========================================================================
 # Источники интервалов (опциональные, инъектируются снаружи)
 # ===========================================================================
+def _load_silero_vad():
+    """Лениво грузит Silero VAD (torch.hub).
+
+    Вызывающий код сам решает, переиспользовать ли (model, get_speech_timestamps)
+    между несколькими вызовами — здесь модель не кэшируется.
+    """
+    import torch
+
+    model, utils = torch.hub.load(
+        repo_or_dir="snakers4/silero-vad", model="silero_vad", trust_repo=True
+    )
+    get_speech_timestamps = utils[0]
+    return model, get_speech_timestamps
+
+
 def intervals_from_silero_vad(speech_track: np.ndarray, sr: int = 16000,
                                threshold: float = 0.5,
                                min_speech_sec: float = 0.25,
@@ -152,10 +167,7 @@ def intervals_from_silero_vad(speech_track: np.ndarray, sr: int = 16000,
     """
     import torch
 
-    model, utils = torch.hub.load(
-        repo_or_dir="snakers4/silero-vad", model="silero_vad", trust_repo=True
-    )
-    get_speech_timestamps = utils[0]
+    model, get_speech_timestamps = _load_silero_vad()
 
     wav = torch.tensor(speech_track, dtype=torch.float32)
     timestamps = get_speech_timestamps(
@@ -166,3 +178,44 @@ def intervals_from_silero_vad(speech_track: np.ndarray, sr: int = 16000,
 
     intervals = [(ts["start"] / sr, ts["end"] / sr) for ts in timestamps]
     return normalize_intervals(intervals)
+
+
+def speech_fraction(audio_segment: np.ndarray, sr: int = 16000,
+                     threshold: float = 0.5,
+                     model=None, get_speech_timestamps=None) -> float:
+    """Доля audio_segment, помеченная Silero VAD как речь (0..1).
+
+    model/get_speech_timestamps можно передать готовыми (см. make_vad_validator),
+    чтобы не грузить модель на каждый вызов. Если не переданы — грузятся лениво.
+    """
+    import torch
+
+    if len(audio_segment) == 0:
+        return 0.0
+    if model is None or get_speech_timestamps is None:
+        model, get_speech_timestamps = _load_silero_vad()
+
+    wav = torch.tensor(audio_segment, dtype=torch.float32)
+    timestamps = get_speech_timestamps(wav, model, sampling_rate=sr, threshold=threshold)
+
+    speech_samples = sum(ts["end"] - ts["start"] for ts in timestamps)
+    return speech_samples / len(audio_segment)
+
+
+def make_vad_validator(audio: np.ndarray, sr: int = 16000,
+                        threshold: float = 0.5,
+                        min_speech_frac: float = 0.8):
+    """Строит validator(start_sec, end_sec) -> bool для ref_picker.pick_reference.
+
+    Silero грузится один раз при создании валидатора и переиспользуется на
+    всех попытках pick_reference (max_tries), а не на каждый кандидат заново.
+    """
+    model, get_speech_timestamps = _load_silero_vad()
+
+    def validator(start_sec: float, end_sec: float) -> bool:
+        start = int(start_sec * sr)
+        end = int(end_sec * sr)
+        frac = speech_fraction(audio[start:end], sr, threshold, model, get_speech_timestamps)
+        return frac >= min_speech_frac
+
+    return validator
