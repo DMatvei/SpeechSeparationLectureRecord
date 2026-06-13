@@ -9,6 +9,11 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox, QDialog
 
 from pipeline import process, PipelineCancelled
+from core import audio_io
+from core.config import SAMPLE_RATE
+from core.converter import convert_to_wav
+from core.ref_picker import pick_reference
+from core.mask import make_vad_validator
 
 AUDIO_FILTER = "Audio Files (*.wav *.mp3 *.flac *.mp4);;All Files (*)"
 AUDIO_EXTS = (".wav", ".mp3", ".flac", ".mp4", ".m4a", ".ogg")
@@ -87,6 +92,48 @@ else:
 
 
 
+
+
+class RefPickerWorker(QObject):
+    """Подготовка кандидата на референсный фрагмент в фоновом потоке.
+
+    Конвертация входа и загрузка Silero VAD (make_vad_validator) — секунды,
+    поэтому выполняются здесь, а не в главном потоке. next_candidate() для
+    реролла — лёгкая операция (VAD по одному 5с фрагменту), её можно звать
+    напрямую из главного потока.
+    """
+    ready = pyqtSignal(float, float, bool)
+    error = pyqtSignal(str)
+
+    def __init__(self, input_path, output_dir):
+        super().__init__()
+        self.input_path = input_path
+        self.output_dir = output_dir
+        self.sr = SAMPLE_RATE
+        self.audio = None
+        self.duration = 0.0
+        self.validator = None
+        self.converted_path = None
+
+    def run(self):
+        try:
+            self.converted_path = os.path.join(self.output_dir, "input_16k.wav")
+            # TODO: pipeline.process() конвертирует input_path заново —
+            # объединить, когда будем менять сигнатуру process().
+            convert_to_wav(self.input_path, self.converted_path, sr=self.sr)
+            self.audio = audio_io.load_audio(self.converted_path, sr=self.sr)
+            self.duration = len(self.audio) / self.sr
+            self.validator = make_vad_validator(self.audio, self.sr)
+            start, end = pick_reference(self.duration, validator=self.validator)
+            confident = self.validator(start, end)
+            self.ready.emit(start, end, confident)
+        except Exception as e:
+            self.error.emit(str(e))
+
+    def next_candidate(self):
+        start, end = pick_reference(self.duration, validator=self.validator)
+        confident = self.validator(start, end)
+        return start, end, confident
 
 
 class Worker(QObject):
@@ -193,13 +240,75 @@ class MainWindom(QMainWindow):
             QMessageBox.warning(self, "Ошибка", "Сначала выберите файл")
             return
 
-        # TODO: временно, пока RefDialog не подключён к запуску
-        reference_path = os.path.join(self.output_dir, "refs", "ref_000.wav")
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        self.progressBar.setValue(0)
+        self.statusLabel.setText("Подготовка референса…")
+        self.statusbar.showMessage("Подготовка референса…")
+        self.pushButton_start.setEnabled(False)
+
+        self.ref_thread = QThread()
+        self.ref_worker = RefPickerWorker(input_path, self.output_dir)
+        self.ref_worker.moveToThread(self.ref_thread)
+
+        self.ref_thread.started.connect(self.ref_worker.run)
+        self.ref_worker.ready.connect(self._on_ref_ready)
+        self.ref_worker.error.connect(self._on_ref_error)
+        self.ref_worker.ready.connect(self.ref_thread.quit)
+        self.ref_worker.error.connect(self.ref_thread.quit)
+
+        self.ref_thread.start()
+
+    # Выбор референса ---------------------------
+    def _on_ref_ready(self, start: float, end: float, confident: bool) -> None:
+        if self.checkBox_autoconfirm.isChecked() and confident:
+            self._accept_reference(start, end)
+            return
+        self._show_ref_dialog(start, end, confident)
+
+    def _on_ref_error(self, message: str) -> None:
+        self.statusLabel.setText("Ошибка")
+        self.statusbar.showMessage("Ошибка")
+        self.pushButton_start.setEnabled(True)
+        QMessageBox.critical(self, "Ошибка", f"Не удалось подготовить референс: {message}")
+
+    def _show_ref_dialog(self, start: float, end: float, confident: bool) -> None:
+        while True:
+            dlg = RefDialog(self.ref_worker.converted_path, int(start * 1000), int(end * 1000), self)
+            if not confident:
+                dlg.promptLabel.setText(
+                    dlg.promptLabel.text()
+                    + "\nНе удалось надёжно определить речь в этом фрагменте — прослушайте внимательно."
+                )
+            result = dlg.exec()
+            dlg.player.stop()
+            dlg.deleteLater()
+
+            if result == QDialog.DialogCode.Accepted:
+                self._accept_reference(start, end)
+                return
+
+            start, end, confident = self.ref_worker.next_candidate()
+
+    def _accept_reference(self, start: float, end: float) -> None:
+        sr = self.ref_worker.sr
+        fragment = self.ref_worker.audio[int(start * sr):int(end * sr)]
+
+        refs_dir = os.path.join(self.output_dir, "refs")
+        os.makedirs(refs_dir, exist_ok=True)
+        base = os.path.splitext(os.path.basename(self.lineEdit.text()))[0]
+        reference_path = os.path.join(refs_dir, f"ref_{base}.wav")
+        audio_io.save_audio(reference_path, fragment, sr)
+
+        self._start_pipeline(reference_path)
+
+    # Запуск обработки ---------------------------
+    def _start_pipeline(self, reference_path: str) -> None:
+        input_path = self.lineEdit.text()
 
         self.progressBar.setValue(0)
         self.statusLabel.setText("Обработка…")
         self.statusbar.showMessage("Обработка…")
-        self.pushButton_start.setEnabled(False)
 
         self.proc_thread = QThread()
         self.worker = Worker(input_path, reference_path, self.output_dir, self.selected_quality())

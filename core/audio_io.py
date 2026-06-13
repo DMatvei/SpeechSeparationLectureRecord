@@ -8,7 +8,7 @@ from . import config
 
 
 def load_audio(path: str, sr: int = config.SAMPLE_RATE) -> np.ndarray:
-    wav, = librosa.load(path, sr=sr)
+    wav, _ = librosa.load(path, sr=sr)
     return wav
 
 
@@ -64,7 +64,7 @@ def crossfade_concat(
         merged_overlap = head_cur + tail_prev
         out = np.concatenate([prev_wav[:-fade_len], merged_overlap,
                               cur_wav[fade_len:]])
-        return  out
+    return out
 
 
 

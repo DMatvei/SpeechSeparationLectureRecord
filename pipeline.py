@@ -21,10 +21,10 @@ import os
 import torch
 import numpy as np
 
-from . import config, audio_io, solospeech
-from .vram import free_vram, get_device
-from .converter import convert_to_wav
-from .residual import compute_residual
+from core import config, audio_io, solospeech
+from core.vram import free_vram, get_device
+from core.converter import convert_to_wav
+from core.mask import intervals_from_silero_vad, build_residual_masked
 
 
 class PipelineCancelled(Exception):
@@ -193,11 +193,12 @@ def process(input_path: str,
 
     if make_residual:
         on_progress(95, "Вторичный сигнал…")
-        residual, info = compute_residual(mixture, extracted)
+        intervals = intervals_from_silero_vad(extracted, sr)
+        residual = build_residual_masked(mixture, intervals=intervals, sr=sr, fill="zero")
         residual_path = os.path.join(output_dir, f"{base}_residual.wav")
         audio_io.save_audio(residual_path, residual, sr)
         result["residual"] = residual_path
-        result["residual_info"] = info
+        result["residual_info"] = {"mode": "masked_zero", "n_intervals": len(intervals)}
 
     on_progress(100, "Готово")
     return result

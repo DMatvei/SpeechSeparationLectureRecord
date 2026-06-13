@@ -147,6 +147,16 @@
         </widget>
        </item>
        <item>
+        <widget class="QCheckBox" name="checkBox_autoconfirm">
+         <property name="text">
+          <string>Без прослушивания</string>
+         </property>
+         <property name="toolTip">
+          <string>Не показывать диалог подтверждения референса — взять предложенный фрагмент автоматически</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <spacer name="qualitySpacer">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
