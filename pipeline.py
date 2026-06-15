@@ -4,11 +4,11 @@
 Дирижирует порядком загрузки/выгрузки компонентов (sequential loading —
 тот же приём, что победил OOM на 8 ГБ VRAM):
 
-  Stage 1: compressor  -> encode reference + все чанки mix -> выгрузить
-  Stage 2: extractor   -> diffusion на каждом латенте      -> выгрузить
-  Stage 3: compressor  -> decode каждого латента в wav      -> выгрузить
-  Stage 4: corrector   -> коррекция каждого чанка           -> выгрузить
-  Stage 5: склейка + (опц.) вторичный сигнал
+  Этап 1: compressor  -> encode reference + все чанки mix -> выгрузить
+  Этап 2: extractor   -> diffusion на каждом латенте      -> выгрузить
+  Этап 3: compressor  -> decode каждого латента в wav      -> выгрузить
+  Этап 4: corrector   -> коррекция каждого чанка           -> выгрузить
+  Этап 5: склейка + (опц.) вторичный сигнал
 
 Короткая запись = частный случай: один чанк на всю длину.
 Промежуточные данные (латенты, wav-чанки) держим в RAM на CPU — для
@@ -63,9 +63,7 @@ def process(input_path: str,
     device = get_device()
     steps = config.QUALITY_PRESETS[quality]["num_infer_steps"]
 
-    # -----------------------------------------------------------------
-    # ЭТАП 0: конвертация в 16 кГц моно wav
-    # -----------------------------------------------------------------
+    # ЭТАП 0: конвертация в 16 кГц моно wav --------------------
     on_progress(2, "Конвертация…")
     converted_wav = os.path.join(output_dir, "input_16k.wav")
     convert_to_wav(input_path, converted_wav, sr=config.SAMPLE_RATE)
@@ -89,9 +87,7 @@ def process(input_path: str,
 
     tse_config = solospeech.load_extractor_config()
 
-    # -----------------------------------------------------------------
-    # STAGE 1: compressor -> encode reference + чанки mix
-    # -----------------------------------------------------------------
+    # Этап 1: compressor -> encode reference + чанки mix ------
     on_progress(8, "Сжатие (компрессор)…")
     autoencoder = solospeech.load_compressor(device)
     free_vram("compressor loaded")
@@ -110,9 +106,7 @@ def process(input_path: str,
     del autoencoder
     free_vram("compressor freed")
 
-    # -----------------------------------------------------------------
-    # STAGE 2: extractor -> diffusion
-    # -----------------------------------------------------------------
+    # Этап 2: extractor -> diffusion --------------------------
     on_progress(20, "Извлечение речи (диффузия)…")
     tse_model = solospeech.load_extractor(device, tse_config)
     scheduler = solospeech.make_scheduler(tse_config, device)
@@ -136,9 +130,7 @@ def process(input_path: str,
     del tse_model, scheduler, mix_latents_cpu
     free_vram("extractor freed")
 
-    # -----------------------------------------------------------------
-    # STAGE 3: compressor -> decode
-    # -----------------------------------------------------------------
+    # Этап 3: compressor -> decode ----------------------------
     on_progress(65, "Декомпрессия…")
     autoencoder = solospeech.load_compressor(device)
     free_vram("compressor reloaded")
@@ -154,9 +146,7 @@ def process(input_path: str,
     del autoencoder, pred_latents_cpu
     free_vram("compressor freed (final)")
 
-    # -----------------------------------------------------------------
-    # STAGE 4: corrector
-    # -----------------------------------------------------------------
+    # Этап 4: corrector ---------------------------------------
     on_progress(75, "Коррекция…")
     geco_model = solospeech.load_corrector(device)
     free_vram("corrector loaded")
@@ -174,9 +164,7 @@ def process(input_path: str,
     del geco_model, pred_wavs_cpu
     free_vram("corrector freed")
 
-    # -----------------------------------------------------------------
-    # STAGE 5: склейка + вторичный сигнал
-    # -----------------------------------------------------------------
+    # Этап 5: склейка + вторичный сигнал ----------------------
     on_progress(92, "Склейка…")
     chunks_with_starts = list(zip(corrected_chunks, chunk_starts))
     extracted = audio_io.crossfade_concat(chunks_with_starts, sr, eff_overlap)

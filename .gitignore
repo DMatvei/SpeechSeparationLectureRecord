@@ -245,6 +245,7 @@ ENV/
 env.bak/
 venv.bak/
 .venv/
+.venv-clean/
 # Spyder project settings
 .spyderproject
 .spyproject
