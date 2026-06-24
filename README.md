@@ -1,6 +1,16 @@
 ## Прослушивание примеров
 
 
+Исходная запись
+
+
+https://github.com/user-attachments/assets/cfd520da-2495-47f9-9dd0-5339c3d7e929
+
+Обработанная запись(речь преподавателя)
+
+https://github.com/user-attachments/assets/54da8352-b120-4ac1-a0dd-9303d8e2178b
+
+
 
 ## Установка окружения
 
