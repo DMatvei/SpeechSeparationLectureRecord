@@ -22,9 +22,4 @@ pip install -r requirements.txt
 pip install --no-deps ./models/SoloSpeech
 ```
 
-Примечание: 4 пакета из requirements.txt (`score-models`,
-`descript-audiotools`, `vector-quantize-pytorch`, `alias-free-torch`)
-требуются только из-за безусловного импорта `stable_vae` в
-`autoencoder_wrapper.py` апстрима — реально используется только `stft_vae`,
-но модуль импортирует оба пути при загрузке.
 
